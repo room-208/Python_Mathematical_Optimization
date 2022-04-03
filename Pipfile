@@ -1,0 +1,25 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+jupyter = "*"
+ipython = "*"
+notebook = "*"
+pandas = "*"
+cvxopt = "*"
+joblib = "*"
+matplotlib = "*"
+seaborn = "*"
+numpy = "*"
+lxml = "*"
+requests = "*"
+autopep8 = "*"
+PuLP = "*"
+Flask = "*"
+
+[dev-packages]
+
+[requires]
+python_version = "3.7"
