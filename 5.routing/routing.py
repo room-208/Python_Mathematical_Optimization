@@ -169,15 +169,15 @@ class RouteSolver:
 
         idx_cands = set(feasible_schedules_df.index)
         dominated_idx_set = set()
-        for dominant_idx in feasible_schedules_df.index:
-            for checked_idx in feasible_schedules_df.index:
+        for dominant_idx in feasible_schedules_df.index:        # チェックする側
+            for checked_idx in feasible_schedules_df.index:     # チェックされる側
                 requests_strict_dominance = (
                     feasible_schedules_df.requests_set.loc[checked_idx] <
-                    feasible_schedules_df.requests_set.loc[dominated_idx_set]
+                    feasible_schedules_df.requests_set.loc[dominant_idx]
                 )
                 overwork_weak_dominance = (
                     feasible_schedules_df.overwork.loc[checked_idx] >=
-                    feasible_schedules_df.overwork.loc[dominated_idx_set]
+                    feasible_schedules_df.overwork.loc[dominant_idx]
                 )
                 if requests_strict_dominance and overwork_weak_dominance:
                     dominated_idx_set.add(checked_idx)
@@ -190,10 +190,8 @@ class RouteSolver:
 if __name__ == "__main__":
     solver = RouteSolver()
     # solver.plot_everything()
-    # print(solver.enumerate_routes())
-    print(solver.D)
-    print(solver.R)
+    solver.enumerate_routes()
 
-    # _schedules = Parallel(n_jobs=16)(
-    #    [delayed(solver.enumerate_feasible_schedules)(d) for d in solver.D])
-    #feasible_schedules = dict(zip(solver.D, _schedules))
+    _schedules = Parallel(n_jobs=16)(
+        [delayed(solver.enumerate_feasible_schedules)(d) for d in solver.D])
+    feasible_schedules = dict(zip(solver.D, _schedules))
