@@ -179,10 +179,13 @@ class RouteSolver:
                     feasible_schedules_df.overwork.loc[checked_idx] >=
                     feasible_schedules_df.overwork.loc[dominant_idx]
                 )
+                # 劣る計画と判断
                 if requests_strict_dominance and overwork_weak_dominance:
                     dominated_idx_set.add(checked_idx)
 
         nondominated_idx = idx_cands - dominated_idx_set
+
+        # d日における劣らない計画
         nondominated_feasible_schedules_df = feasible_schedules_df.loc[nondominated_idx, :]
         return nondominated_feasible_schedules_df
 
