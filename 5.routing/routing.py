@@ -194,13 +194,28 @@ class RouteSolver:
         print(f"Day = {d} end...")
         return nondominated_feasible_schedules_df
 
+    def build(self):
+        self.enumerate_routes()
+
+        _schedules = Parallel(n_jobs=16)(
+            [delayed(self.enumerate_feasible_schedules)(d) for d in self.D])
+        feasible_schedules = dict(zip(self.D, _schedules))
+
+        prob = pulp.LpProblem(sense=pulp.LpMaximize)
+
+        z = {}
+        for d in self.D:
+            for q in feasible_schedules[d].index:
+                z[d, q] = pulp.LpVariable(f'z_{d}_{q}', cat="Binary")
+
+        y = {
+            r: pulp.LpVariable(f'y_{r}', cat="Continuous", lowBound=0, upBound=1) for r in self.R
+        }
+
+    def solve(self):
+
 
 if __name__ == "__main__":
     solver = RouteSolver()
-    # solver.plot_everything()
-    solver.enumerate_routes()
-
-    _schedules = Parallel(n_jobs=16)(
-        [delayed(solver.enumerate_feasible_schedules)(d) for d in solver.D])
-    feasible_schedules = dict(zip(solver.D, _schedules))
-    print(feasible_schedules)
+    solver.build()
+    solver.solve()
