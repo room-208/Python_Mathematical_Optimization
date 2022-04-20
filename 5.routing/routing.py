@@ -11,7 +11,6 @@ import matplotlib as mpl
 import pulp
 from itertools import product, combinations_with_replacement
 from joblib import Parallel, delayed
-from soupsieve import select
 
 DIRNAME = "./5.routing"
 
