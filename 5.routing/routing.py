@@ -104,12 +104,14 @@ class RouteSolver:
             '残業時間': h.value()}
 
     def enumerate_routes(self):
+        print("enumerate_routes begin...")
         routes = Parallel(n_jobs=16)(
             [delayed(self.simulate_route)(z)
              for z in product([0, 1], repeat=len(self.K))]
         )
         routes = pd.DataFrame(filter(lambda x: x is not None, routes))
         self.routes_df = routes[routes.optimal].copy()
+        print("enumerate_routes end...")
 
     def is_OK(self, requests):
         weight = sum([self.w[r] for r in requests])
@@ -136,6 +138,9 @@ class RouteSolver:
         requests = [requests_cands[i] for i in idx_set_to_check]
         is_ok = self.is_OK(requests)
 
+        print(len(requests_cands))
+
+        # 最悪2^len(requests_cands)試すことになる。
         if is_ok:
             best_route_idx, best_hours = is_ok
             res.append({'requests': [requests_cands[i]
@@ -152,6 +157,7 @@ class RouteSolver:
                 requests_cands, current_idx_set, next_idx, res)
 
     def enumerate_feasible_schedules(self, d):
+        print(f"Day = {d} begin...")
         requests_cands = [r for r in self.R if self.d_0[r] <= d <= self.d_1[r]]
 
         res = [{'requests': [],
@@ -186,6 +192,7 @@ class RouteSolver:
 
         # d日における劣らない計画
         nondominated_feasible_schedules_df = feasible_schedules_df.loc[nondominated_idx, :]
+        print(f"Day = {d} end...")
         return nondominated_feasible_schedules_df
 
 
@@ -197,3 +204,4 @@ if __name__ == "__main__":
     _schedules = Parallel(n_jobs=16)(
         [delayed(solver.enumerate_feasible_schedules)(d) for d in solver.D])
     feasible_schedules = dict(zip(solver.D, _schedules))
+    print(feasible_schedules)
