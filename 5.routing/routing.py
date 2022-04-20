@@ -9,7 +9,7 @@ import sys
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 import pulp
-from itertools import product, combinations_with_replacement
+from itertools import product
 from joblib import Parallel, delayed
 
 DIRNAME = "./5.routing"
@@ -137,8 +137,6 @@ class RouteSolver:
         is_next_idx_valid = next_idx < len(requests_cands)
         requests = [requests_cands[i] for i in idx_set_to_check]
         is_ok = self.is_OK(requests)
-
-        print(len(requests_cands))
 
         # 最悪2^len(requests_cands)試すことになる。
         # requests_candsで積めるパターンを全列挙する。
