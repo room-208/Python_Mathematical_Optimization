@@ -11,6 +11,7 @@ import matplotlib as mpl
 import pulp
 from itertools import product
 from joblib import Parallel, delayed
+from requests import request
 
 DIRNAME = "./5.routing"
 
@@ -20,11 +21,12 @@ class RouteSolver:
         np.random.seed(10)
         self.num_places = 10
         self.num_days = 30
-        self.num_requests = 120
+        self.num_requests = 50
+
         self.mean_travel_time_to_destinations = 100
         self.H_regular = 8*60
         self.H_max_overtime = 3*60
-        self.c = 3000/60
+        self.c = 3000//60
         self.W = 4000
         self.delivery_outsourcing_unit_cost = 4600
         self.delivery_time_window = 3
@@ -49,6 +51,12 @@ class RouteSolver:
         self.f = np.ceil(self.w/100)*self.delivery_outsourcing_unit_cost
 
         self.routes_df = None
+        self.feasible_schedules = None
+        self.prob = None
+        self.z = None
+        self.y = None
+        self.deliv_count = None
+        self.h = None
 
     def plot_everything(self):
         a = plt.subplot()
@@ -199,23 +207,78 @@ class RouteSolver:
 
         _schedules = Parallel(n_jobs=16)(
             [delayed(self.enumerate_feasible_schedules)(d) for d in self.D])
-        feasible_schedules = dict(zip(self.D, _schedules))
+        self.feasible_schedules = dict(zip(self.D, _schedules))
 
-        prob = pulp.LpProblem(sense=pulp.LpMaximize)
+        self.prob = pulp.LpProblem(sense=pulp.LpMaximize)
 
-        z = {}
+        self.z = {}
         for d in self.D:
-            for q in feasible_schedules[d].index:
-                z[d, q] = pulp.LpVariable(f'z_{d}_{q}', cat="Binary")
+            for q in self.feasible_schedules[d].index:
+                self.z[d, q] = pulp.LpVariable(f'z_{d}_{q}', cat="Binary")
 
-        y = {
+        self.y = {
             r: pulp.LpVariable(f'y_{r}', cat="Continuous", lowBound=0, upBound=1) for r in self.R
         }
 
+        self.deliv_count = {r: pulp.LpAffineExpression() for r in self.R}
+        for d in self.D:
+            for q in self.feasible_schedules[d].index:
+                for r in self.feasible_schedules[d].loc[q].requests:
+                    self.deliv_count[r] += self.z[d, q]
+
+        self.h = {
+            d: pulp.lpSum([self.z[d, q]*self.feasible_schedules[d].overwork.loc[q] for q in self.feasible_schedules[d].index]) for d in self.D
+        }
+
+        for d in self.D:
+            self.prob += pulp.lpSum(self.z[d, q] for q in self.feasible_schedules[d].index) == 1
+
+        for r in self.R:
+            self.prob += self.y[r] >= 1-self.deliv_count[r]
+
+        obj_overtime = pulp.lpSum([self.c * self.h[d] for d in self.D])
+        obj_outsorcing = pulp.lpSum([self.f[r]*self.y[r] for r in self.R])
+        self.prob += obj_overtime + obj_outsorcing
+
     def solve(self):
+        self.prob.solve()
+
+    def visualize_route(self, d):
+        for q in self.feasible_schedules[d].index:
+            if self.z[d, q].value() == 1:
+                route_summary = self.feasible_schedules[d].loc[q]
+                route_geography = self.routes_df.loc[route_summary.route_idx]
+                break
+
+        a = plt.subplot()
+        a.scatter(self._K[1:, 0], self.K_[1:, 1], marker='x')
+        a.scatter(self._K[0, 0], self.K_[0, 1], marker='o')
+
+        motions = [(k_from, k_to) for (k_from, k_to), used in route_geography.route.items() if used > 0]
+        for k_from, k_to in motions:
+            p_from = self._K[int(k_from)]
+            p_to = self._K[int(k_to)]
+            a.arrow(
+                *p_from, *(p_to-p_from),
+                head_width=3,
+                length_includes_head=True,
+                overhang=0.5,
+                color='gray',
+                alpha=0.5
+            )
+
+            requests_at_k_to = [r for r in route_summary.requests if self.k[r] == k_to]
+            a.text(*p_to, ''.join([str(r) for r in requests_at_k_to]))
+            plt.title(f"Schedule for day: {d}")
+            plt.show()
+
+    def visualize_route_everyday(self):
+        for d in solver.D:
+            self.visualize_route(d)
 
 
 if __name__ == "__main__":
     solver = RouteSolver()
     solver.build()
     solver.solve()
+    solver.visualize_route_everyday()
