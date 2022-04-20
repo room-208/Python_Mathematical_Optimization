@@ -251,8 +251,8 @@ class RouteSolver:
                 break
 
         a = plt.subplot()
-        a.scatter(self._K[1:, 0], self.K_[1:, 1], marker='x')
-        a.scatter(self._K[0, 0], self.K_[0, 1], marker='o')
+        a.scatter(self._K[1:, 0], self._K[1:, 1], marker='x')
+        a.scatter(self._K[0, 0], self._K[0, 1], marker='o')
 
         motions = [(k_from, k_to) for (k_from, k_to), used in route_geography.route.items() if used > 0]
         for k_from, k_to in motions:
