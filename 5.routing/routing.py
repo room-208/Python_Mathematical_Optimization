@@ -141,6 +141,7 @@ class RouteSolver:
         print(len(requests_cands))
 
         # 最悪2^len(requests_cands)試すことになる。
+        # requests_candsで積めるパターンを全列挙する。
         if is_ok:
             best_route_idx, best_hours = is_ok
             res.append({'requests': [requests_cands[i]
