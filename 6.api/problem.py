@@ -5,77 +5,74 @@ import pulp
 DIRNAME = "./6.api/resource"
 
 
-class CarAssignSolver:
-    def __init__(self) -> None:
-        self.__students_df = None
-        self.__cars_df = None
-        self.__prob = None
-        self.__S = None
-        self.__C = None
-        self.__G = None
-        self.__SC = None
-        self.__S_licence = None
-        self.__S_g = None
-        self.__S_male = None
-        self.__S_female = None
-        self.__U = None
-        self.__x = None
+class CarGroupProblem():
+    def __init__(self, students_df, cars_df, name='ClubCarProblem'):
+        self.__students_df = students_df
+        self.__cars_df = cars_df
+        self.__name = name
+        self.__prob = self.__formulate()
 
-    def read_data(self):
-        self.__students_df = pd.read_csv(os.path.join(DIRNAME, "students.csv"))
-        self.__cars_df = pd.read_csv(os.path.join(DIRNAME, "cars.csv"))
+    def __formulate(self):
+        prob = pulp.LpProblem(sense=pulp.LpMaximize)
 
-    def build(self):
-        self.__prob = pulp.LpProblem(sense=pulp.LpMaximize)
+        S = self.__students_df["student_id"].to_list()
+        C = self.__cars_df["car_id"].to_list()
+        G = [1, 2, 3, 4]
+        SC = [(s, c) for s in S for c in C]
+        S_licence = self.__students_df[self.__students_df["license"] == 1]["student_id"].to_list()
+        S_g = {g: self.__students_df[self.__students_df["grade"] == g]["student_id"].to_list() for g in G}
+        male = self.__students_df[self.__students_df["gender"] == 0]["student_id"].to_list()
+        female = self.__students_df[self.__students_df["gender"] == 1]["student_id"].to_list()
+        U = self.__cars_df["capacity"].to_list()
 
-        self.__S = self.__students_df["student_id"].to_list()
-        self.__C = self.__cars_df["car_id"].to_list()
-        self.__G = [1, 2, 3, 4]
-        self.__SC = [(s, c) for s in self.__S for c in self.__C]
-        self.__S_licence = self.__students_df[self.__students_df["license"] == 1]["student_id"].to_list()
-        self.__S_g = {g: self.__students_df[self.__students_df["grade"] == g]["student_id"].to_list() for g in self.__G}
-        self.__male = self.__students_df[self.__students_df["gender"] == 0]["student_id"].to_list()
-        self.__female = self.__students_df[self.__students_df["gender"] == 1]["student_id"].to_list()
-        self.__U = self.__cars_df["capacity"].to_list()
+        x = pulp.LpVariable.dicts('x', SC, cat='Binary')
 
-        self.__x = pulp.LpVariable.dicts('x', self.__SC, cat='Binary')
+        for s in S:
+            prob += pulp.lpSum([x[s, c] for c in C]) == 1
 
-        for s in self.__S:
-            self.__prob += pulp.lpSum([self.__x[s, c] for c in self.__C]) == 1
+        for c in C:
+            prob += pulp.lpSum([x[s, c] for s in S]) <= U[c]
 
-        for c in self.__C:
-            self.__prob += pulp.lpSum([self.__x[s, c] for s in self.__S]) <= self.__U[c]
+        for c in C:
+            prob += pulp.lpSum([x[s, c] for s in S_licence]) >= 1
 
-        for c in self.__C:
-            self.__prob += pulp.lpSum([self.__x[s, c] for s in self.__S_licence]) >= 1
+        for c in C:
+            for g in G:
+                prob += pulp.lpSum([x[s, c] for s in S_g[g]]) >= 1
 
-        for c in self.__C:
-            for g in self.__G:
-                self.__prob += pulp.lpSum([self.__x[s, c] for s in self.__S_g[g]]) >= 1
+        for c in C:
+            prob += pulp.lpSum([x[s, c] for s in male]) >= 1
 
-        for c in self.__C:
-            self.__prob += pulp.lpSum([self.__x[s, c] for s in self.__male]) >= 1
+        for c in C:
+            prob += pulp.lpSum([x[s, c] for s in female]) >= 1
 
-        for c in self.__C:
-            self.__prob += pulp.lpSum([self.__x[s, c] for s in self.__female]) >= 1
+        return {'prob': prob, 'variable': {'x': x}, 'list': {'S': S, 'C': C}}
 
     def solve(self):
-        self.__prob.solve()
+        self.__prob['prob'].solve()
+        x = self.__prob['variable']['x']
+        S = self.__prob['list']['S']
+        C = self.__prob['list']['C']
 
-    def check_solution(self):
-        car2students = {
-            c: [s for s in self.__S if self.__x[s, c].value() == 1] for c in self.__C
-        }
+        car2students = {c: [s for s in S if x[s, c].value() == 1] for c in C}
+        student2car = {s: c for c, ss in car2students.items() for s in ss}
+        solution_df = pd.DataFrame(list(student2car.items()), columns=["student_id", "car_id"])
+        solution_df = solution_df.sort_values("student_id")
+        solution_df = solution_df.reset_index(drop=True)
 
-        for c, ss in car2students.items():
-            print(f"car = {c}")
-            print(f"capacity  = {self.__U[c]}")
-            print(f"students  = {ss}")
+        return solution_df
 
 
-if __name__ == "__main__":
-    solver = CarAssignSolver()
-    solver.read_data()
-    solver.build()
-    solver.solve()
-    solver.check_solution()
+if __name__ == '__main__':
+    # データの読み込み
+    students_df = pd.read_csv(os.path.join(DIRNAME, "students.csv"))
+    cars_df = pd.read_csv(os.path.join(DIRNAME, "cars.csv"))
+
+    # 数理モデル インスタンスの作成
+    prob = CarGroupProblem(students_df, cars_df)
+
+    # 問題を解く
+    solution_df = prob.solve()
+
+    # 結果の表示
+    print('Solution: \n', solution_df)
