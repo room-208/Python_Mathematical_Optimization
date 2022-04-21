@@ -21,7 +21,7 @@ class RouteSolver:
         np.random.seed(10)
         self.num_places = 10
         self.num_days = 30
-        self.num_requests = 50
+        self.num_requests = 120
 
         self.mean_travel_time_to_destinations = 100
         self.H_regular = 8*60
@@ -245,15 +245,17 @@ class RouteSolver:
 
     def visualize_route(self, d):
         for q in self.feasible_schedules[d].index:
-            if self.z[d, q].value() == 1:
+            if self.z[d, q].value() > 0:
                 route_summary = self.feasible_schedules[d].loc[q]
                 route_geography = self.routes_df.loc[route_summary.route_idx]
                 break
 
+        # 背景
         a = plt.subplot()
         a.scatter(self._K[1:, 0], self._K[1:, 1], marker='x')
         a.scatter(self._K[0, 0], self._K[0, 1], marker='o')
 
+        # 移動経路
         motions = [(k_from, k_to) for (k_from, k_to), used in route_geography.route.items() if used > 0]
         for k_from, k_to in motions:
             p_from = self._K[int(k_from)]
@@ -268,9 +270,10 @@ class RouteSolver:
             )
 
             requests_at_k_to = [r for r in route_summary.requests if self.k[r] == k_to]
-            a.text(*p_to, ''.join([str(r) for r in requests_at_k_to]))
-            plt.title(f"Schedule for day: {d}")
-            plt.show()
+            a.text(*p_to, ' '.join([str(r) for r in requests_at_k_to]))
+
+        plt.title(f'Schedule for day: {d}')
+        plt.show()
 
     def visualize_route_everyday(self):
         for d in solver.D:
