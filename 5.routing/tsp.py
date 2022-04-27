@@ -8,7 +8,7 @@ import time
 class TSPSolver:
     def __init__(self) -> None:
         np.random.seed(10)
-        self.num_places = 10
+        self.num_places = 30
 
         self.dist_range = 1000
 
